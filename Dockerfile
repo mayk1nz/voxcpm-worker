@@ -12,11 +12,17 @@ WORKDIR /app
 ENV HF_HOME=/app/hf \
     MP3_BITRATE=64k \
     DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    CC=/usr/bin/gcc \
+    CXX=/usr/bin/g++ \
+    TORCHINDUCTOR_MAX_AUTOTUNE=0 \
+    TORCH_COMPILE_DISABLE=1
 
-# System libs (soundfile/ffmpeg)
+# System libs + C compiler (VoxCPM2 usa torch.compile/triton que compila
+# kernels em runtime — sem gcc no container, model load crasha com
+# InductorError: Failed to find C compiler).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libsndfile1 ffmpeg git \
+      libsndfile1 ffmpeg git gcc g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # VoxCPM + RunPod handler.
