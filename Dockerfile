@@ -20,16 +20,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # VoxCPM + RunPod handler.
-# Mesmo pattern do chatterbox-worker (licao aprendida):
-# 1. Instala libs normalmente
-# 2. Force-reinstall trio torch/tv/ta matched (cu128) pra evitar
-#    `torchvision::nms does not exist` quando transformers lazy-importa torchvision
-RUN pip install --no-cache-dir \
+# IMPORTANTE: omnivoice-worker funciona perfeitamente apenas com
+# `--upgrade-strategy=only-if-needed`. Reproduzimos o mesmo pattern aqui.
+# Force-reinstall do trio torch+tv+ta (chatterbox pattern) quebrava o runpod
+# lib silenciosamente — workers ficavam "idle/ready" mas nunca pegavam jobs.
+# So forcamos torchvision matched (que era o causador do torchvision::nms
+# crash em workers que importam transformers > LlamaModel > image_utils).
+RUN pip install --no-cache-dir --upgrade-strategy=only-if-needed \
       runpod voxcpm soundfile numpy huggingface_hub
 
+# Reinstala torchvision matched com torch da imagem base (2.7.1+cu128).
+# --no-deps pra nao tocar nas outras libs.
 RUN pip install --no-cache-dir --force-reinstall --no-deps \
       --index-url https://download.pytorch.org/whl/cu128 \
-      torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1
+      torchvision==0.22.1
 
 # Pre-baixa pesos (cold start nao precisa baixar). Modo CPU pra evitar
 # need de GPU no build host. Se falhar, download cai no runtime.
